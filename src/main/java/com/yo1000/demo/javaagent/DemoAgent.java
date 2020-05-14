@@ -14,6 +14,7 @@ import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -25,14 +26,7 @@ public class DemoAgent {
     private static final int ARGS_ENTRY_ITEM_VALUE_INDEX = 1;
 
     public static void premain(String agentArgs, Instrumentation instrumentation) throws Exception {
-        String normalizedArgs = agentArgs.replaceAll("\\s*", "");
-        Map<String, String> argsMap = Arrays.stream(normalizedArgs.split(ARGS_ENTRY_SEPARATOR))
-                .filter(s -> s.matches(ARGS_ENTRY_ITEM_FORMAT))
-                .map(s -> s.split(ARGS_ENTRY_ITEM_SEPARATOR))
-                .collect(Collectors.toMap(
-                        keyValue -> keyValue[ARGS_ENTRY_ITEM_KEY_INDEX],
-                        keyValue -> keyValue[ARGS_ENTRY_ITEM_VALUE_INDEX])
-                );
+        Map<String, String> argsMap = parseAgentArguments(agentArgs);
 
         String hostname = argsMap.getOrDefault("hostname", null);
         int port = Integer.parseInt(argsMap.getOrDefault("port", "8888"));
@@ -46,6 +40,19 @@ public class DemoAgent {
         // The use of server.join() the will make the current thread join and
         // wait until the server thread is done executing.
         server.join();
+    }
+
+    private static Map<String, String> parseAgentArguments(String agentArgs) {
+        if (agentArgs == null || agentArgs.trim().isEmpty()) return Collections.emptyMap();
+
+        String normalizedArgs = agentArgs.replaceAll("\\s*", "");
+        return Arrays.stream(normalizedArgs.split(ARGS_ENTRY_SEPARATOR))
+                .filter(s -> s.matches(ARGS_ENTRY_ITEM_FORMAT))
+                .map(s -> s.split(ARGS_ENTRY_ITEM_SEPARATOR))
+                .collect(Collectors.toMap(
+                        keyValue -> keyValue[ARGS_ENTRY_ITEM_KEY_INDEX],
+                        keyValue -> keyValue[ARGS_ENTRY_ITEM_VALUE_INDEX])
+                );
     }
 
     public static Server createServer(String hostname, int port) {
