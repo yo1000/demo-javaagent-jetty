@@ -1,8 +1,13 @@
 # Demo Javaagent Jetty
 
-## How to Build
+## How to Build (Maven)
 ```bash
 ./mvnw clean package
+```
+
+## How to Build (Gradle)
+```bash
+./gradlew clean shadowJar
 ```
 
 ## How to Use
