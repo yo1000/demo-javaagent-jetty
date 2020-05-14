@@ -12,11 +12,33 @@ import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DemoAgent {
+    private static final String ARGS_ENTRY_SEPARATOR = ",";
+    private static final String ARGS_ENTRY_ITEM_SEPARATOR = "=";
+    private static final String ARGS_ENTRY_ITEM_FORMAT = "[^=]+=[^=]+";
+    private static final int ARGS_ENTRY_ITEM_KEY_INDEX = 0;
+    private static final int ARGS_ENTRY_ITEM_VALUE_INDEX = 1;
+
     public static void premain(String agentArgs, Instrumentation instrumentation) throws Exception {
-        // Create a basic jetty server object that will listen on port 8080.
-        Server server = createServer(8888);
+        String normalizedArgs = agentArgs.replaceAll("\\s*", "");
+        Map<String, String> argsMap = Arrays.stream(normalizedArgs.split(ARGS_ENTRY_SEPARATOR))
+                .filter(s -> s.matches(ARGS_ENTRY_ITEM_FORMAT))
+                .map(s -> s.split(ARGS_ENTRY_ITEM_SEPARATOR))
+                .collect(Collectors.toMap(
+                        keyValue -> keyValue[ARGS_ENTRY_ITEM_KEY_INDEX],
+                        keyValue -> keyValue[ARGS_ENTRY_ITEM_VALUE_INDEX])
+                );
+
+        String hostname = argsMap.getOrDefault("hostname", null);
+        int port = Integer.parseInt(argsMap.getOrDefault("port", "8888"));
+
+        // Create a basic jetty server object.
+        Server server = createServer(hostname, port);
 
         // Start things up!
         server.start();
@@ -26,16 +48,16 @@ public class DemoAgent {
         server.join();
     }
 
-    public static Server createServer(int port) {
-        return new Server(port) {
-            {
-                setHandler(new ServletHandler() {
-                    {
-                        addServletWithMapping(IndexServlet.class, "/*");
-                    }
-                });
-            }
-        };
+    public static Server createServer(String hostname, int port) {
+        Server server = hostname != null && !hostname.equals("0.0.0.0")
+                ? new Server(new InetSocketAddress(hostname, port))
+                : new Server(port);
+
+        server.setHandler(new ServletHandler() {{
+            addServletWithMapping(IndexServlet.class, "/*");
+        }});
+
+        return server;
     }
 
     public static class IndexServlet extends HttpServlet {
@@ -55,10 +77,10 @@ public class DemoAgent {
 
             PrintWriter writer = response.getWriter();
             writer.println("<ul>");
-            writer.println("<li>max: " + max + "</li>");
-            writer.println("<li>committed: " + committed + "</li>");
-            writer.println("<li>used: " + used + "</li>");
-            writer.println("<li>available: " + available + "</li>");
+            writer.printf("<li>max: <code>%,d</code></li>\n", + max);
+            writer.printf("<li>committed: <code>%,d</code></li>\n", committed);
+            writer.printf("<li>used: <code>%,d</code></li>\n", used);
+            writer.printf("<li>available: <code>%,d</code></li>\n", available);
             writer.println("</ul>");
         }
     }
