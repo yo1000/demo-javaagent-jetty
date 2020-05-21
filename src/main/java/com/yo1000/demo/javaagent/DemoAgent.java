@@ -34,12 +34,21 @@ public class DemoAgent {
         // Create a basic jetty server object.
         Server server = createServer(hostname, port);
 
-        // Start things up!
-        server.start();
+        Thread t = new Thread(() -> {
+            // Start things up!
+            try {
+                server.start();
 
-        // The use of server.join() the will make the current thread join and
-        // wait until the server thread is done executing.
-        server.join();
+                // The use of server.join() the will make the current thread join and
+                // wait until the server thread is done executing.
+                server.join();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        t.setDaemon(true);
+        t.start();
     }
 
     private static Map<String, String> parseAgentArguments(String agentArgs) {
